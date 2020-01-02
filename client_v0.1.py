@@ -2,8 +2,10 @@ import socket
 import selectors
 import types
 import tkinter
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 import pickle
+import struct
+
 
 
 HOST = '127.0.0.1'
@@ -14,7 +16,7 @@ connid=0
 
 USERNAME = ''
 PASSWORD = ''
-
+LOGIN = False
 def start_connection():
     server_addr = (HOST, PORT)
     print('Starting connection'
@@ -83,12 +85,22 @@ class SampleApp(tkinter.Tk):
 
 class StartPage(tkinter.Frame):
     def __init__(self, master):
-        tkinter.Frame.__init__(self, master)
-        tkinter.Label(self, text='Start Page', font=('Helvetica', 18, 'bold')).pack(side='top', fill='x', pady=5)
-        tkinter.Button(self, text='Sign Up',
-                       command=lambda:master.switch_frame(page_SignUp)).pack()
-        tkinter.Button(self, text='Login',
-                       command=lambda:master.switch_frame(page_Login)).pack()
+            tkinter.Frame.__init__(self, master)
+            tkinter.Label(self, text='Start Page', font=('Helvetica', 18, 'bold')).pack(side='top', fill='x', pady=5)
+            tkinter.Button(self, text='Sign Up',
+                           command=lambda:master.switch_frame(page_SignUp)).pack()
+            tkinter.Button(self, text='Login',
+                           command=lambda:master.switch_frame(page_Login)).pack()
+
+class StartPage_2(tkinter.Frame):
+    def __init__(self, master):
+            tkinter.Frame.__init__(self, master)
+            tkinter.Label(self, text='Start Page', font=('Helvetica', 18, 'bold')).pack(side='top', fill='x', pady=5)
+            tkinter.Button(self, text='Create Auction',
+                           command=lambda: master.switch_frame(createAuction)).pack()
+            tkinter.Button(self, text='Login',
+                           command=lambda: master.switch_frame(page_Login)).pack()
+
 
 
 class page_SignUp(tkinter.Frame):
@@ -154,12 +166,66 @@ class page_Login(tkinter.Frame):
             confirm = int(confirm[1])
 
             if confirm == 1:
-
+                LOGIN = True
                 USERNAME = username_i
                 PASSWORD = password_i
-                master.switch_frame(StartPage)
+                master.switch_frame(StartPage_2)
             else:
                 tkinter.messagebox.showerror('Login Error',"User name and password does not match")
+
+class createAuction(tkinter.Frame):
+    def __init__(self, master):
+        path = ''
+        tkinter.Frame.__init__(self, master)
+
+        form = tkinter.Frame(self)
+        form.pack()
+        tkinter.Label(form, text='Item Name').grid(row=0)
+        tkinter.Label(form, text='Image').grid(row=1)
+        tkinter.Label(form, text='Description').grid(row=2)
+        tkinter.Label(form, text='Starting Price').grid(row=3)
+        tkinter.Label(form, text='Duration').grid(row=4)
+
+        name = tkinter.Entry(form)
+        name.grid(row=0, column=1)
+        tkinter.Button(form, text='Add Image',
+                       command=lambda: choose_file()).grid(row=1, column=1)
+        desc = tkinter.Entry(form)
+        desc.grid(row=2, column=1)
+        price = tkinter.Entry(form)
+        price.grid(row=3, column=1)
+        duration = tkinter.Entry(form)
+        duration.grid(row=4, column=1)
+        tkinter.Button(form, text='Start Auction',
+                       command=lambda :submit_auction()).grid(row=5, column=1)
+
+
+        def choose_file():
+            self.path = filedialog.askopenfilename()
+            print(self.path)
+        def submit_auction():
+            pid = 2
+            datagram = []
+            datagram.append(pid)
+            datagram.append(name.get())
+            datagram.append(desc.get())
+            datagram.append(price.get())
+            datagram.append(duration.get())
+
+            print(self.path)
+            image_file = open(self.path, 'rb')
+            bytes = image_file.read()
+            size = struct.pack('!i',len(bytes))
+            data = pickle.dumps(datagram)
+            sock.send(data)
+
+            sock.send(size)
+
+            sock.send(bytes)
+
+class listAuctions(tkinter.Frame):
+    def __init__(self, master):
+        tkinter.Frame.__init__(self, master)
 
 
 app = SampleApp()

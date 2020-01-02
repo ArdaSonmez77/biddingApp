@@ -5,6 +5,12 @@ import pickle
 import struct
 
 INFO_PATH = 'INFO.txt'
+
+def number_of_auctions():
+    f = open(INFO_PATH,'r')
+    content = f.read().splitlines()
+    f.close()
+    return len(content)
 def accept_wrapper(sock):
     conn, addr = sock.accept()
     print('Accepted connection from', addr)
@@ -21,6 +27,7 @@ def create_user(username, password):
     f_users.write('\n')
     f_users.close()
 def check_credentials(username, password):
+    print(INFO_PATH)
     f_users = open("users.txt", 'r')
     content = f_users.read().splitlines()
     print(content)
@@ -47,6 +54,8 @@ def create_auction(a_name, a_desc, a_price, a_duration, sock):
     f.write(a_duration)
     f.write('\n')
     f.close()
+    f.write(a_price)
+    f.write('\n')
 
     f_img = open(img_path,'wb')
     size = sock.recv(4)
@@ -66,9 +75,46 @@ def create_auction(a_name, a_desc, a_price, a_duration, sock):
     f_img.write(img_data)
     f_img.close()
 
-
+    f_info = open(INFO_PATH,'a')
+    f_info.write(a_name)
+    f_info.write('\n')
+    f_info.close()
 
     return 1
+
+def send_list(sock):
+    f = open(INFO_PATH, 'r')
+    content = f.read().splitlines()
+    contents = pickle.dumps(content)
+    f.close()
+    sock.send(contents)
+
+def send_auction(inc_data, sock):
+    path = 'Auctions\\'+inc_data[1]+'.txt'
+    f = open(path, 'r')
+    content = f.read().splitlines()
+    contents = pickle.dumps(content)
+    f.close()
+    sock.send(contents)
+
+    path_img = 'Auctions\\'+inc_data[1]+'.png'
+    f_img = open(path_img, 'rb')
+    img_bytes = f_img.read()
+    size = struct.pack('!i',len(img_bytes))
+    sock.send(size)
+
+    sock.send(img_bytes)
+
+def update_offer(a_name,new_value, sock):
+    path = 'Auctions\\'+a_name+'.txt'
+    f = open(path, 'r')
+    data = f.readlines()
+    f.close()
+    data[4] = new_value
+
+    with open(path,'w') as file:
+        file.writelines(data)
+
 
 def service_connection(key, mask):
     sock = key.fileobj
@@ -82,10 +128,18 @@ def service_connection(key, mask):
             if inc_data[0] == 0:
                 create_user(inc_data[1], inc_data[2])
             elif inc_data[0] == 1:
+
                 sock.send(bytes(str(check_credentials(inc_data[1], inc_data[2])),'utf-8'))
             elif inc_data[0] == 2:
                 print(len(inc_data))
                 create_auction(inc_data[1], inc_data[2], inc_data[3], inc_data[4],sock)
+            elif inc_data[0] == 3:
+                send_list(sock)
+            elif inc_data[0] == 4:
+                send_auction(inc_data, sock)
+            elif inc_data[0] == 5:
+                update_offer(inc_data[1], inc_data[2], sock)
+
 
 
 

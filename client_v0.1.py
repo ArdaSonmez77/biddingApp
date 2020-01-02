@@ -5,15 +5,16 @@ import tkinter
 from tkinter import messagebox, filedialog
 import pickle
 import struct
-
-
+from PIL import Image
+from PIL import ImageTk
+import datetime
 
 HOST = '127.0.0.1'
 PORT = 65432
 messages = []
 sel = selectors.DefaultSelector()
 connid=0
-
+CUR_AUCTION = ''
 USERNAME = ''
 PASSWORD = ''
 LOGIN = False
@@ -98,8 +99,8 @@ class StartPage_2(tkinter.Frame):
             tkinter.Label(self, text='Start Page', font=('Helvetica', 18, 'bold')).pack(side='top', fill='x', pady=5)
             tkinter.Button(self, text='Create Auction',
                            command=lambda: master.switch_frame(createAuction)).pack()
-            tkinter.Button(self, text='Login',
-                           command=lambda: master.switch_frame(page_Login)).pack()
+            tkinter.Button(self, text='List of Auctions',
+                           command=lambda: master.switch_frame(listAuctions)).pack()
 
 
 
@@ -226,6 +227,110 @@ class createAuction(tkinter.Frame):
 class listAuctions(tkinter.Frame):
     def __init__(self, master):
         tkinter.Frame.__init__(self, master)
+        command = []
+        command.append(3)
+        data = pickle.dumps(command)
+        sock.send(data)
+
+        recv_data = sock.recv(4096)
+        inc_data = pickle.loads(recv_data)
+        number_of_auctions = len(inc_data)
+
+        LB = tkinter.Listbox(self)
+        for i in range(0,number_of_auctions):
+            LB.insert(i, inc_data[i])
+        LB.pack()
+        b1 = tkinter.Button(self, text='Choose',
+                            command=lambda : make_selection()).pack()
+        b2 = tkinter.Button(self, text='Back',
+                            command=lambda : master.switch_frame(StartPage_2)).pack()
+        def make_selection():
+            set_auction(LB.get(LB.curselection()))
+            master.switch_frame(viewAuction)
+
+def set_auction(name):
+    global CUR_AUCTION
+    CUR_AUCTION = name
+def get_auction():
+    return CUR_AUCTION
+
+class viewAuction(tkinter.Frame):
+    def __init__(self, master):
+        global CUR_AUCTION
+        tkinter.Frame.__init__(self, master)
+        pid = 4
+        command = []
+        command.append(pid)
+        cur_auction = get_auction()
+        command.append(cur_auction)
+        data = pickle.dumps(command)
+        sock.send(data)
+
+        recv_data = sock.recv(4096)
+        contents = pickle.loads(recv_data)
+        print(contents)
+
+        size = sock.recv(4)
+        size = struct.unpack('!i',size)[0]
+        print(size)
+        img_data=b''
+        img_path = contents[0]+'.png'
+        while size > 0:
+            if size >= 4096:
+                data = sock.recv(4096)
+            else:
+                data = sock.recv(size)
+
+            if not data:
+                break
+
+            size -= len(data)
+            img_data += data
+        f_img = open(img_path,'wb')
+        f_img.write(img_data)
+        f_img.close()
+
+        info = tkinter.Frame(self)
+        info.pack()
+        tkinter.Label(info, text='Item Name:').grid(row=0)
+        tkinter.Label(info, text='Description:').grid(row=1)
+        tkinter.Label(info, text='Starting Price:').grid(row=2)
+        tkinter.Label(info, text='Duration:').grid(row=3)
+
+        tkinter.Label(info, text=contents[0], fg='green').grid(row=0, column=1)
+        tkinter.Label(info, text=contents[1], fg='green').grid(row=1, column=1)
+        tkinter.Label(info, text=contents[2], fg='green').grid(row=2, column=1)
+        tkinter.Label(info, text=contents[3], fg='green').grid(row=3, column=1)
+
+        img = ImageTk.PhotoImage(Image.open(img_path).resize((100,100), Image.ANTIALIAS))
+        panel = tkinter.Label(info, image=img)
+        panel.image = img
+        panel.grid(row=4)
+
+        tkinter.Label(info, text='Current Bid:').grid(row=5)
+        tkinter.Label(info, text=contents[4], fg='green').grid(row=5,column=1)
+        tkinter.Label(info, text='Input Offer:').grid(row=6)
+        offer = tkinter.Entry(info)
+        offer.grid(row=6, column=1)
+        tkinter.Button(info, text='Make Offer',
+                       command=lambda: make_offer()).grid(row=7)
+
+        tkinter.Button(info, text='Back',
+                       command=lambda: master.switch_frame(listAuctions)).grid(row=7, column=1)
+
+        tkinter.Button(info, text='Refresh',
+                       command= lambda :master.switch_frame(viewAuction)).grid(row=8)
+
+        def make_offer():
+            pid = 5
+            datagram = []
+            datagram.append(pid)
+            datagram.append(contents[0])
+            datagram.append(offer.get())
+            data = pickle.dumps(datagram)
+
+            sock.send(data)
+            master.switch_frame(viewAuction)
 
 
 app = SampleApp()
